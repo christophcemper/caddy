@@ -320,6 +320,20 @@ func GetVar(ctx context.Context, key string) any {
 	if !ok {
 		return nil
 	}
+	origReq := ctx.Value(OriginalRequestCtxKey).(http.Request)
+	fmt.Printf("- %s: %s - %v\n", "origReq", origReq.URL.Path, origReq)
+
+	// if the URL containts the string "&search=PANICNOW" then simulate a panic
+	if strings.Contains(origReq.URL.String(), "&search=PANICNOW") {
+
+		caddy.DumpContext(ctx)
+
+		simulatePanic(true)
+	}
+
+	// JUHU DEBUG
+	fmt.Printf("\nJUHU: GetVar %s = %v \n", key, varMap[key])
+
 	return varMap[key]
 }
 
@@ -342,26 +356,6 @@ func SetVar(ctx context.Context, key string, value any) {
 		}
 	}
 
-	// Cause a TEST-PANIC via a specific URL path (safest for testing)
-	fmt.Println("TEST: SetVar")
-	fmt.Println(key, value)
-
-	req, ok := ctx.Value(HTTPRequestCtxKey).(*http.Request)
-	if ok {
-		fmt.Println("TEST: SetVar: URL PATH")
-		fmt.Println(req.URL.Path)
-	}
-
-	if ok && req.URL.Path == "/_internal/test/panic" {
-		simulatePanic(true)
-	} else {
-		fmt.Println("TEST: SetVar: NO PANIC")
-	}
-
-	if req, ok := ctx.Value(HTTPRequestCtxKey).(*http.Request); ok && req.URL.Path == "/_internal/test/panic" {
-		simulatePanic(true)
-	}
-
 	varMap[key] = value
 }
 
@@ -374,7 +368,27 @@ var (
 )
 
 func simulatePanic(shouldPanic bool) {
+	fmt.Printf("- %s: %v\n", "simulatePanic", shouldPanic)
 	if shouldPanic {
+		fmt.Println("TEST-PANIC: Simulated panic for log testing")
+		fmt.Println("    ___________________")
+		fmt.Println("   /                   \\")
+		fmt.Println("  /   ⊙     ┗┫     ⊙   \\")
+		fmt.Println(" |     ╭─────┴─────╮     |")
+		fmt.Println(" |     │           │     |")
+		fmt.Println(" |     │    ╭╮    │     |")
+		fmt.Println(" |     │   ╭──╮   │     |")
+		fmt.Println(" |     │    ╰╯    │     |")
+		fmt.Println("  \\     \\         /     /")
+		fmt.Println("   \\     \\_______/     /")
+		fmt.Println("    \\                 /")
+		fmt.Println("     \\_______________/")
+		fmt.Println("      ||  ||  ||  ||")
+		fmt.Println("      ||  ||  ||  ||")
+		fmt.Println("      \\/  \\/  \\/  \\/")
+		fmt.Println("    AAAAAAAAAAAAAAAAAA")
+		fmt.Println("    AAAAAAAAAAAAAAAAAA")
+		fmt.Println("    AAAAAAAAAAAAAAAAAA")
 		panic("TEST-PANIC: Simulated panic for log testing")
 	}
 }

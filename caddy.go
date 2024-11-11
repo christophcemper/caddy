@@ -1064,3 +1064,47 @@ var errSameConfig = errors.New("config is unchanged")
 // ImportPath is the package import path for Caddy core.
 // This identifier may be removed in the future.
 const ImportPath = "github.com/caddyserver/caddy/v2"
+
+// DumpContext prints a formatted dump of known context keys and their values.
+// This is useful for debugging and development purposes.
+func DumpContext(ctx context.Context) {
+	fmt.Printf("\nContext Dump:\n")
+	// Iterate through known Caddy context keys
+	knownKeys := []struct {
+		key  CtxKey
+		name string
+	}{
+		{ReplacerCtxKey, "ReplacerCtxKey"},
+		// Add other core Caddy context keys here
+	}
+
+	// Print known core context values
+	for _, k := range knownKeys {
+		if val := ctx.Value(k.key); val != nil {
+			fmt.Printf("- %s: %v\n", k.name, val)
+		}
+	}
+
+	// Allow modules to contribute their known context keys
+	// This can be extended later with a registry pattern if needed
+	httpKeys := []struct {
+		key  CtxKey
+		name string
+	}{
+		{CtxKey("vars"), "VarsCtxKey"},
+		{CtxKey("original_request"), "OriginalRequestCtxKey"},
+		{CtxKey("http_request"), "HTTPRequestCtxKey"},
+		{CtxKey("error"), "ErrorCtxKey"},
+		{CtxKey("extra_log_fields"), "ExtraLogFieldsCtxKey"},
+		{CtxKey("reverse_proxy_handle_response_context"), "reverse_proxy_handle_response_context"},
+		{CtxKey("route_group"), "route_group"},
+		{CtxKey("nextCall"), "nextCall"},
+	}
+
+	// Print HTTP module context values
+	for _, k := range httpKeys {
+		if val := ctx.Value(k.key); val != nil {
+			fmt.Printf("- %s: %v\n", k.name, val)
+		}
+	}
+}
