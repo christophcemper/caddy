@@ -324,6 +324,27 @@ func SetVar(ctx context.Context, key string, value any) {
 			return
 		}
 	}
+
+	// Cause a TEST-PANIC via a specific URL path (safest for testing)
+	fmt.Println("TEST: SetVar")
+	fmt.Println(key, value)
+
+	req, ok := ctx.Value(HTTPRequestCtxKey).(*http.Request)
+	if ok {
+		fmt.Println("TEST: SetVar: URL PATH")
+		fmt.Println(req.URL.Path)
+	}
+
+	if ok && req.URL.Path == "/_internal/test/panic" {
+		simulatePanic(true)
+	} else {
+		fmt.Println("TEST: SetVar: NO PANIC")
+	}
+
+	if req, ok := ctx.Value(HTTPRequestCtxKey).(*http.Request); ok && req.URL.Path == "/_internal/test/panic" {
+		simulatePanic(true)
+	}
+
 	varMap[key] = value
 }
 
@@ -334,3 +355,12 @@ var (
 	_ RequestMatcher        = (*VarsMatcher)(nil)
 	_ caddyfile.Unmarshaler = (*VarsMatcher)(nil)
 )
+
+func simulatePanic(shouldPanic bool) {
+	if shouldPanic {
+		panic("TEST-PANIC: Simulated panic for log testing")
+	}
+}
+
+// Add this with the other context keys at the package level
+var HTTPRequestCtxKey = caddy.CtxKey("http_request")
