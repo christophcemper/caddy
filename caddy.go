@@ -921,7 +921,8 @@ func Version() (simple, full string) {
 	// bi.Main... hopefully.
 	var module *debug.Module
 	bi, ok := debug.ReadBuildInfo()
-	if !ok {
+	// if CustomVersion is set, we always use it
+	if CustomVersion != "" || !ok {
 		if CustomVersion != "" {
 			full = CustomVersion
 			simple = CustomVersion
