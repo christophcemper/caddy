@@ -303,19 +303,31 @@ func GetVar(ctx context.Context, key string) any {
 	if !ok {
 		return nil
 	}
-	origReq := ctx.Value(OriginalRequestCtxKey).(http.Request)
-	fmt.Printf("- %s: %s - %v\n", "origReq", origReq.URL.Path, origReq)
 
-	// if the URL containts the string "&search=PANICNOW" then simulate a panic
-	if strings.Contains(origReq.URL.String(), "&search=PANICNOW") {
+	if key == "client_ip" {
+		origReq, ok := ctx.Value(OriginalRequestCtxKey).(http.Request)
+		if ok && origReq.URL != nil {
+			fmt.Printf("\n- %s: %s - %s - %v - ", "origReq", origReq.URL.Path, origReq.RemoteAddr, origReq.Header)
 
-		caddy.DumpContext(ctx)
+			// if the URL contains the string "&search=PANICNOW" then simulate a panic
+			// but only if the client IP starts with local IP range 10. or 172. or 192.
+			if strings.Contains(origReq.URL.String(), "&search=PANICNOW") &&
+				(strings.HasPrefix(origReq.RemoteAddr, "10.") ||
+					strings.HasPrefix(origReq.RemoteAddr, "172.") ||
+					strings.HasPrefix(origReq.RemoteAddr, "192.") ||
+					strings.HasPrefix(origReq.RemoteAddr, "127.0.0.1")) {
+				caddy.DumpContext(ctx)
 
-		simulatePanic(true)
+				simulatePanic(true)
+			}
+		}
 	}
 
-	// JUHU DEBUG
-	fmt.Printf("\nJUHU: GetVar %s = %v \n", key, varMap[key])
+	// in case we crash, print the value of the key last
+	value := varMap[key]
+	if key == "client_ip" {
+		fmt.Printf("%s", value)
+	}
 
 	return varMap[key]
 }
