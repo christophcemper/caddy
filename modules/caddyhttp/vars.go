@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/caddyserver/caddy/v2"
@@ -299,15 +300,25 @@ func (m MatchVarsRE) Validate() error {
 // GetVar gets a value out of the context's variable table by key.
 // If the key does not exist, the return value will be nil.
 func GetVar(ctx context.Context, key string) any {
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Caught panic in GetVar")
+			fmt.Printf("Stack trace:\n%s\n", debug.Stack())
+			caddy.DumpContext(ctx)
+		}
+	}()
+
 	varMap, ok := ctx.Value(VarsCtxKey).(map[string]any)
 	if !ok {
 		return nil
 	}
 
+	// temporary panic simulation
 	if key == "client_ip" {
 		origReq, ok := ctx.Value(OriginalRequestCtxKey).(http.Request)
 		if ok && origReq.URL != nil {
-			fmt.Printf("\n- %s: %s - %s - %v - ", "origReq", origReq.URL.Path, origReq.RemoteAddr, origReq.Header)
+			// fmt.Printf("\n- %s: %s - %s - %v - ", "origReq", origReq.URL.Path, origReq.RemoteAddr, origReq.Header)
 
 			// if the URL contains the string "&search=PANICNOW" then simulate a panic
 			// but only if the client IP starts with local IP range 10. or 172. or 192.
