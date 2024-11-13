@@ -539,6 +539,63 @@ func ReqWithVars(req *http.Request, vars map[string]any) *http.Request {
 	return req.WithContext(ContextWithVars(ctx, vars))
 }
 
+// ContextWithVars attaches a new vars map to the context protected by a write lock.
+func ContextWithVars(ctx context.Context, vars map[string]any) context.Context {
+
+	// check if the context already has a vars rwmutex
+	varsRWMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.RWMutexPlus)
+	if !ok {
+		// if not, create a new one
+
+		varsRWMutexTimeout := time.Duration(VarsRWMutexMicros) * time.Microsecond
+
+		// max time to acquire a lock configured via Caddyfile
+		// if app.VarsLockTimeout > 0 {
+		// 	varsRWMutexTimeout = time.Duration(app.VarsLockTimeout)
+		// }
+
+		varsRWMutex = rwmutexplus.NewRWMutexPlus("VarsRWMutex", time.Duration(varsRWMutexTimeout), nil)
+		// TODO: make this dynamic from config/CLI flags
+		varsRWMutex.WithDebugLevel(1).WithVerboseLevel(3)
+
+		ctx = context.WithValue(ctx, VarsRWMutexCtxKey, varsRWMutex)
+	}
+
+	// check if the context already has a vars map
+	// if not, set up the vars map with a write lock
+	varsRWMutex.LockWithPurpose("ContextWithVars" + fmt.Sprintf(" %v", vars))
+	defer varsRWMutex.Unlock()
+
+	existingVars, ok := ctx.Value(VarsCtxKey).(map[string]any)
+	if !ok {
+		ctx = context.WithValue(ctx, VarsCtxKey, vars)
+
+	} else {
+		// if it does, update the existing vars map?!?!
+		// for k, v := range vars {
+		// 	existingVars[k] = v
+		// }
+		// or panic?
+		// TODO: decide what to do - seems like this was never considered
+
+		// dump the existing vars map
+		fmt.Printf("existingVars: %v\n", existingVars)
+		panic("vars map already exists in context and it should not, or was overwritten in the past?")
+	}
+
+	return ctx
+}
+
+// ReqWithVars attaches a new vars map to the request context protected by a write lock.
+func ReqWithVars(req *http.Request, vars map[string]any) *http.Request {
+
+	// get the original request context
+	ctx := req.Context()
+
+	// attach the vars map to the context protected by a write lock
+	return req.WithContext(ContextWithVars(ctx, vars))
+}
+
 // Interface guards
 var (
 	_ MiddlewareHandler     = (*VarsMiddleware)(nil)
