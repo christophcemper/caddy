@@ -786,23 +786,7 @@ func (s *Server) logRequest(
 		}))
 	fields = append(fields, extra.fields...)
 
-	loggers := []*zap.Logger{accLog}
-	if s.Logs != nil {
-		loggers = s.Logs.wrapLogger(accLog, r)
-	}
-
-	// wrapping may return multiple loggers, so we log to all of them
-	for _, logger := range loggers {
-		logAtLevel := logger.Info
-		if wrec.Status() >= 500 {
-			logAtLevel = logger.Error
-		}
-		message := "handled request"
-		if nop, ok := GetVar(r.Context(), "unhandled").(bool); ok && nop {
-			message = "NOP"
-		}
-		logAtLevel(message, fields...)
-	}
+	log("handled request", fields...)
 }
 
 // protocol returns true if the protocol proto is configured/enabled.
@@ -834,7 +818,6 @@ func PrepareRequest(r *http.Request, repl *caddy.Replacer, w http.ResponseWriter
 	ctx = context.WithValue(ctx, ServerCtxKey, s)
 
 	trusted, clientIP := determineTrustedProxy(r, s)
-
 	ctx = ContextWithVars(ctx, map[string]any{
 		TrustedProxyVarKey: trusted,
 		ClientIPVarKey:     clientIP,
@@ -1040,7 +1023,7 @@ const (
 
 	// max time to acquire a lock
 	// we should have no concurrency so any time here would be plenty
-	VarsRWMutexMicros int = 100
+	VarsRWMutexMicros int = 10000
 
 	// For a partial copy of the unmodified request that
 	// originally came into the server's entry handler

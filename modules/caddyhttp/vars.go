@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -61,7 +62,9 @@ func getVarsAndReadLock(ctx context.Context) (map[string]any, func(), bool) {
 func getVarsAndReadLockPurpose(ctx context.Context, purpose string) (map[string]any, func(), bool) {
 	rwMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.RWMutexPlus)
 	if !ok {
-		fmt.Printf("getVarsAndReadLock: no rwmutexplus.RWMutexPlus in context\n")
+		buf := make([]byte, 1<<16)
+		runtime.Stack(buf, true)
+		fmt.Printf("getVarsAndReadLock: no rwmutexplus.RWMutexPlus in context\n%s\n", buf)
 		return nil, nil, false
 	}
 	rwMutex.RLockWithPurpose(purpose)
@@ -87,8 +90,13 @@ func getVarsAndWriteLock(ctx context.Context) (map[string]any, func(), bool) {
 func getVarsAndWriteLockPurpose(ctx context.Context, purpose string) (map[string]any, func(), bool) {
 	rwMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.RWMutexPlus)
 	if !ok {
-		fmt.Printf("getVarsAndWriteLock: no rwmutexplus.RWMutexPlus in context\n")
-		return nil, nil, false
+		// print Callstack
+		buf := make([]byte, 1<<16)
+		runtime.Stack(buf, true)
+		fmt.Printf("getVarsAndWriteLock: no rwmutexplus.RWMutexPlus in context\n%s\n", buf)
+		// panic("getVarsAndWriteLock: no rwmutexplus.RWMutexPlus in context\n")
+
+		// return nil, nil, false
 	}
 	rwMutex.LockWithPurpose(purpose)
 	// rwMutex.RLock()
@@ -103,15 +111,17 @@ func getVarsAndWriteLockPurpose(ctx context.Context, purpose string) (map[string
 	return vars, rwMutex.Unlock, true
 }
 
-// Update ServeHTTP to use write lock
-func (m VarsMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next Handler) error {
-	// set the purpose of the mutex to the name of the handler method
-	// so we can see which handler is holding the lock in the debug output
-	// get URL from original request
-	url := "URL?"
+// getURLfromRequest safely extracts the URL string from a request
+func getURLfromRequest(r *http.Request) string {
 	if r != nil && r.URL != nil {
-		url = r.URL.String()
+		return r.URL.String()
 	}
+	return "URL?"
+}
+
+// Update ServeHTTP to use the new helper function
+func (m VarsMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next Handler) error {
+	url := getURLfromRequest(r)
 	vars, unlock, ok := getVarsAndReadLockPurpose(r.Context(), fmt.Sprintf("VarsMiddleware.ServeHTTP %s", url))
 	if !ok {
 		fmt.Printf("VarsMiddleware.ServeHTTP %s: no vars map in context\n", url)
@@ -394,7 +404,8 @@ func (m MatchVarsRE) Validate() error {
 
 // Update GetVar to use read lock
 func GetVar(ctx context.Context, key string) any {
-	vars, unlock, ok := getVarsAndReadLockPurpose(ctx, "GetVar "+key)
+	url := getURLfromRequest(ctx.Value(OriginalRequestCtxKey).(*http.Request))
+	varMap, unlock, ok := getVarsAndReadLockPurpose(ctx, "GetVar "+key+" "+url)
 	if !ok {
 		fmt.Printf("GetVar: no vars map in context\n")
 		return nil
@@ -405,7 +416,10 @@ func GetVar(ctx context.Context, key string) any {
 
 // Update SetVar to use write lock
 func SetVar(ctx context.Context, key string, value any) {
-	varMap, unlock, ok := getVarsAndWriteLockPurpose(ctx, "SetVar "+key)
+	// url := getURLfromRequest(ctx.Value(OriginalRequestCtxKey).(*http.Request))
+	url := "URL?"
+	valueStr := fmt.Sprintf("%v", value)
+	varMap, unlock, ok := getVarsAndWriteLockPurpose(ctx, "SetVar "+key+" "+valueStr+" "+url)
 	if !ok {
 		fmt.Printf("SetVar: no vars map in context\n")
 		return
