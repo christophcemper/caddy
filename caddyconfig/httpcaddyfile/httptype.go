@@ -185,11 +185,12 @@ func (st ServerType) Setup(
 
 	// now that each server is configured, make the HTTP app
 	httpApp := caddyhttp.App{
-		HTTPPort:      tryInt(options["http_port"], &warnings),
-		HTTPSPort:     tryInt(options["https_port"], &warnings),
-		GracePeriod:   tryDuration(options["grace_period"], &warnings),
-		ShutdownDelay: tryDuration(options["shutdown_delay"], &warnings),
-		Servers:       servers,
+		HTTPPort:        tryInt(options["http_port"], &warnings),
+		HTTPSPort:       tryInt(options["https_port"], &warnings),
+		GracePeriod:     tryDuration(options["grace_period"], &warnings),
+		VarsLockTimeout: tryDuration(options["vars_lock_timeout"], &warnings),
+		ShutdownDelay:   tryDuration(options["shutdown_delay"], &warnings),
+		Servers:         servers,
 	}
 
 	// then make the TLS app

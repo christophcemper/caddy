@@ -122,6 +122,12 @@ type App struct {
 	// If zero, the grace period is eternal. Default: 0.
 	GracePeriod caddy.Duration `json:"grace_period,omitempty"`
 
+	// VarsLockTimeout is how long to wait for a read-write lock on the vars map (or others)
+	// Once the VarsLockTimeout is over, we consider lock contention and or unexpected concurrency
+	// and dump the existing vars map to the logger.
+	// If zero, the VarsLockTimeout is disabled. Default: 0.
+	VarsLockTimeout caddy.Duration `json:"vars_lock_timeout,omitempty"`
+
 	// ShutdownDelay is how long to wait before initiating the grace
 	// period. When this app is stopping (e.g. during a config reload or
 	// process exit), all servers will be shut down. Normally this immediately
