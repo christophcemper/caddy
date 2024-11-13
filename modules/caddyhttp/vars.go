@@ -394,7 +394,7 @@ func (m MatchVarsRE) Validate() error {
 
 // Update GetVar to use read lock
 func GetVar(ctx context.Context, key string) any {
-	varMap, unlock, ok := getVarsAndReadLockPurpose(ctx, "GetVar "+key)
+	vars, unlock, ok := getVarsAndReadLockPurpose(ctx, "GetVar "+key)
 	if !ok {
 		fmt.Printf("GetVar: no vars map in context\n")
 		return nil
