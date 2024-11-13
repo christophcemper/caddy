@@ -947,7 +947,9 @@ func TestVarREMatcher(t *testing.T) {
 			req := &http.Request{URL: new(url.URL), Method: http.MethodGet}
 			repl := caddy.NewReplacer()
 			ctx := context.WithValue(req.Context(), caddy.ReplacerCtxKey, repl)
-			ctx = context.WithValue(ctx, VarsCtxKey, make(map[string]any))
+
+			ctx = ContextWithVars(ctx, make(map[string]any))
+
 			req = req.WithContext(ctx)
 
 			addHTTPVarsToReplacer(repl, req, httptest.NewRecorder())

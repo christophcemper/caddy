@@ -769,7 +769,8 @@ func PrepareRequest(r *http.Request, repl *caddy.Replacer, w http.ResponseWriter
 	ctx = context.WithValue(ctx, ServerCtxKey, s)
 
 	trusted, clientIP := determineTrustedProxy(r, s)
-	ctx = context.WithValue(ctx, VarsCtxKey, map[string]any{
+
+	ctx = ContextWithVars(ctx, map[string]any{
 		TrustedProxyVarKey: trusted,
 		ClientIPVarKey:     clientIP,
 	})
@@ -918,7 +919,12 @@ const (
 	ServerCtxKey caddy.CtxKey = "server"
 
 	// For the request's variable table
-	VarsCtxKey caddy.CtxKey = "vars"
+	VarsCtxKey        caddy.CtxKey = "vars"
+	VarsRWMutexCtxKey caddy.CtxKey = "vars_rwmutex"
+
+	// max time to acquire a lock
+	// we should have no concurrency so any time here would be plenty
+	VarsRWMutexMillis int = 1150
 
 	// For a partial copy of the unmodified request that
 	// originally came into the server's entry handler
