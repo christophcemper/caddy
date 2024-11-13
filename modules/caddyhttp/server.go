@@ -1040,7 +1040,7 @@ const (
 
 	// max time to acquire a lock
 	// we should have no concurrency so any time here would be plenty
-	VarsRWMutexMillis int = 1150
+	VarsRWMutexMicros int = 100
 
 	// For a partial copy of the unmodified request that
 	// originally came into the server's entry handler
