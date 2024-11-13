@@ -80,8 +80,8 @@ github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghf
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/christophcemper/rwmutexplus v0.0.0-20241112210834-b9ac03aedd65 h1:LSQEZXwpPcWKFMcFJS88VFCD0SXG+nmaJ++Exh5qqtw=
-github.com/christophcemper/rwmutexplus v0.0.0-20241112210834-b9ac03aedd65/go.mod h1:/A4QmwVvZtzslqNriPM4zt2ai2k/HGIaQli7odOLT5Y=
+github.com/christophcemper/rwmutexplus v0.0.3 h1:simNEPnpqBj4r8/obhBkXUR7LX5l8V4CdJXFKAMIs3A=
+github.com/christophcemper/rwmutexplus v0.0.3/go.mod h1:/A4QmwVvZtzslqNriPM4zt2ai2k/HGIaQli7odOLT5Y=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/logex v1.2.1 h1:XHDu3E6q+gdHgsdTPH6ImJMIp436vR6MPtH8gP05QzM=
 github.com/chzyer/logex v1.2.1/go.mod h1:JLbx6lG2kDbNRFnfkgvh4eRJRPX1QCoOIWomwysCBrQ=
