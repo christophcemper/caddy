@@ -1018,12 +1018,7 @@ const (
 	ServerCtxKey caddy.CtxKey = "server"
 
 	// For the request's variable table
-	VarsCtxKey        caddy.CtxKey = "vars"
-	VarsRWMutexCtxKey caddy.CtxKey = "vars_rwmutex"
-
-	// max time to acquire a lock
-	// we should have no concurrency so any time here would be plenty
-	VarsRWMutexMicros int = 10000
+	VarsCtxKey caddy.CtxKey = "vars"
 
 	// For a partial copy of the unmodified request that
 	// originally came into the server's entry handler
