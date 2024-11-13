@@ -295,7 +295,7 @@ func TestClientIPHashPolicy(t *testing.T) {
 	pool := testPool()
 	ipHash := ClientIPHashSelection{}
 	req, _ := http.NewRequest("GET", "/", nil)
-	req = req.WithContext(context.WithValue(req.Context(), caddyhttp.VarsCtxKey, make(map[string]any)))
+	req = caddyhttp.ReqWithVars(req, make(map[string]any))
 
 	// We should be able to predict where every request is routed.
 	caddyhttp.SetVar(req.Context(), caddyhttp.ClientIPVarKey, "172.0.0.1:80")

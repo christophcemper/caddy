@@ -20,9 +20,11 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/christophcemper/rwmutexplus"
 )
 
 func init() {
@@ -49,8 +51,68 @@ func (VarsMiddleware) CaddyModule() caddy.ModuleInfo {
 	}
 }
 
+// getVarsAndReadLock gets the vars map from context with a read lock.
+// Returns the vars map and a function to unlock the shared mutex.
+func getVarsAndReadLock(ctx context.Context) (map[string]any, func(), bool) {
+	rwMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.InstrumentedRWMutex)
+	if !ok {
+		fmt.Printf("getVarsAndReadLock: no rwmutexplus.InstrumentedRWMutex in context\n")
+		return nil, nil, false
+	}
+	rwMutex.RLock()
+
+	vars, ok := ctx.Value(VarsCtxKey).(map[string]any)
+	if !ok {
+		rwMutex.RUnlock()
+		fmt.Printf("getVarsAndReadLock: no vars map in context\n")
+		return nil, nil, false
+	}
+
+	return vars, rwMutex.RUnlock, true
+}
+
+// getVarsAndWriteLock gets the vars map from context with a write lock.
+// Returns the vars map and a function to unlock the mutex.
+func getVarsAndWriteLock(ctx context.Context) (map[string]any, func(), bool) {
+	return getVarsAndWriteLockPurpose(ctx, "no purpose?")
+}
+
+// getVarsAndWriteLockPurpose gets the vars map from context with a write lock and sets the purpose of the mutex.
+// Returns the vars map and a function to unlock the mutex.
+func getVarsAndWriteLockPurpose(ctx context.Context, purpose string) (map[string]any, func(), bool) {
+	rwMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.InstrumentedRWMutex)
+	if !ok {
+		fmt.Printf("getVarsAndWriteLock: no rwmutexplus.InstrumentedRWMutex in context\n")
+		return nil, nil, false
+	}
+	rwMutex.LockPurpose(purpose)
+
+	vars, ok := ctx.Value(VarsCtxKey).(map[string]any)
+	if !ok {
+		rwMutex.Unlock()
+		fmt.Printf("getVarsAndWriteLock: no vars map in context\n")
+		return nil, nil, false
+	}
+
+	return vars, rwMutex.Unlock, true
+}
+
+// Update ServeHTTP to use write lock
 func (m VarsMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next Handler) error {
-	vars := r.Context().Value(VarsCtxKey).(map[string]any)
+	// set the purpose of the mutex to the name of the handler method
+	// so we can see which handler is holding the lock in the debug output
+	// get URL from original request
+	url := "URL?"
+	if r != nil && r.URL != nil {
+		url = r.URL.String()
+	}
+	vars, unlock, ok := getVarsAndWriteLockPurpose(r.Context(), fmt.Sprintf("VarsMiddleware.ServeHTTP %s", url))
+	if !ok {
+		fmt.Printf("VarsMiddleware.ServeHTTP %s: no vars map in context\n", url)
+		return next.ServeHTTP(w, r)
+	}
+	defer unlock()
+
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
 	for k, v := range m {
 		keyExpanded := repl.ReplaceAll(k, "")
@@ -65,6 +127,7 @@ func (m VarsMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next H
 			repl.Set(keyExpanded, v)
 		}
 	}
+
 	return next.ServeHTTP(w, r)
 }
 
@@ -160,14 +223,18 @@ func (m *VarsMatcher) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 	return nil
 }
 
-// Match matches a request based on variables in the context,
-// or placeholders if the key is not a variable.
+// Update Match to use read lock
 func (m VarsMatcher) Match(r *http.Request) bool {
 	if len(m) == 0 {
 		return true
 	}
 
-	vars := r.Context().Value(VarsCtxKey).(map[string]any)
+	vars, unlock, ok := getVarsAndReadLock(r.Context())
+	if !ok {
+		return false
+	}
+	defer unlock()
+
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
 
 	for key, vals := range m {
@@ -267,9 +334,14 @@ func (m MatchVarsRE) Provision(ctx caddy.Context) error {
 	return nil
 }
 
-// Match returns true if r matches m.
+// Update Match to use read lock
 func (m MatchVarsRE) Match(r *http.Request) bool {
-	vars := r.Context().Value(VarsCtxKey).(map[string]any)
+	vars, unlock, ok := getVarsAndReadLock(r.Context())
+	if !ok {
+		return false
+	}
+	defer unlock()
+
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
 	for key, val := range m {
 		var varValue any
@@ -314,9 +386,14 @@ func (m MatchVarsRE) Validate() error {
 	return nil
 }
 
-// GetVar gets a value out of the context's variable table by key.
-// If the key does not exist, the return value will be nil.
+// Update GetVar to use read lock
 func GetVar(ctx context.Context, key string) any {
+	varMap, unlock, ok := getVarsAndReadLock(ctx)
+	if !ok {
+		fmt.Printf("GetVar: no vars map in context\n")
+		return nil
+	}
+	defer unlock()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -325,11 +402,6 @@ func GetVar(ctx context.Context, key string) any {
 			caddy.DumpContext(ctx)
 		}
 	}()
-
-	varMap, ok := ctx.Value(VarsCtxKey).(map[string]any)
-	if !ok {
-		return nil
-	}
 
 	// temporary panic simulation
 	if key == "client_ip" {
@@ -360,26 +432,78 @@ func GetVar(ctx context.Context, key string) any {
 	return varMap[key]
 }
 
-// SetVar sets a value in the context's variable table with
-// the given key. It overwrites any previous value with the
-// same key.
-//
-// If the value is nil (note: non-nil interface with nil
-// underlying value does not count) and the key exists in
-// the table, the key+value will be deleted from the table.
+// Update SetVar to use write lock
 func SetVar(ctx context.Context, key string, value any) {
-	varMap, ok := ctx.Value(VarsCtxKey).(map[string]any)
+	vars, unlock, ok := getVarsAndWriteLockPurpose(ctx, fmt.Sprintf("SetVar %s=%v", key, value))
 	if !ok {
+		fmt.Printf("SetVar: no vars map in context\n")
 		return
 	}
+	// defer unlock()
+
 	if value == nil {
-		if _, ok := varMap[key]; ok {
-			delete(varMap, key)
+		if _, ok := vars[key]; ok {
+			delete(vars, key)
+			unlock()
 			return
 		}
 	}
+	vars[key] = value
 
-	varMap[key] = value
+	unlock()
+}
+
+// ContextWithVars attaches a new vars map to the context protected by a write lock.
+func ContextWithVars(ctx context.Context, vars map[string]any) context.Context {
+
+	// check if the context already has a vars rwmutex
+	varsRWMutex, ok := ctx.Value(VarsRWMutexCtxKey).(*rwmutexplus.InstrumentedRWMutex)
+	if !ok {
+		// if not, create a new one
+
+		varsRWMutexTimeout := time.Duration(VarsRWMutexMillis) * time.Millisecond
+
+		// max time to acquire a lock configured via Caddyfile
+		// if app.VarsLockTimeout > 0 {
+		// 	varsRWMutexTimeout = time.Duration(app.VarsLockTimeout)
+		// }
+
+		varsRWMutex = rwmutexplus.NewInstrumentedRWMutex(time.Duration(varsRWMutexTimeout))
+		ctx = context.WithValue(ctx, VarsRWMutexCtxKey, varsRWMutex)
+	}
+
+	// check if the context already has a vars map
+	existingVars, ok := ctx.Value(VarsCtxKey).(map[string]any)
+	if !ok {
+		// if not, set up the vars map with a write lock
+		varsRWMutex.Lock()
+		ctx = context.WithValue(ctx, VarsCtxKey, vars)
+		varsRWMutex.Unlock()
+	} else {
+		// if it does, update the existing vars map?!?!
+		// for k, v := range vars {
+		// 	existingVars[k] = v
+		// }
+		// or panic?
+		// TODO: decide what to do - seems like this was never considered
+
+		// dump the existing vars map
+		fmt.Printf("existingVars: %v\n", existingVars)
+		panic("vars map already exists in context and it should not, or was overwritten in the past?")
+	}
+
+	return ctx
+}
+
+// ReqWithVars attaches a new vars map to the request context protected by a write lock.
+func ReqWithVars(req *http.Request, vars map[string]any) *http.Request {
+
+	// get the original request context
+	ctx := req.Context()
+
+	// attach the vars map to the context protected by a write lock
+	return req.WithContext(ContextWithVars(ctx, vars))
+
 }
 
 // Interface guards

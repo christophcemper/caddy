@@ -112,6 +112,15 @@ func TestGlobalOptions(t *testing.T) {
 		{
 			input: `
 				{
+					vars_lock_timeout 50ms
+				}
+				:80
+			`,
+			expectError: false,
+		},
+		{
+			input: `
+				{
 					email test@example.com
 				}
 				:80
