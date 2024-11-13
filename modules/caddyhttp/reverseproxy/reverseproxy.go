@@ -429,8 +429,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 	start := time.Now()
 	defer func() {
 		// total proxying duration, including time spent on LB and retries
-		repl.Set("http.reverse_proxy.duration", time.Since(start))
-		repl.Set("http.reverse_proxy.duration_ms", time.Since(start).Seconds()*1e3) // multiply seconds to preserve decimal (see #4666)
+
+		// TODO: CCC temp disable - causing data race
+		/*
+		   		WARNING: DATA RACE
+		   Write at 0x00c017e2d530 by goroutine 4302:
+		     runtime.mapaccess2_faststr()
+		         /opt/homebrew/Cellar/go@1.21/1.21.8/libexec/src/runtime/map_faststr.go:108 +0x42c
+		     github.com/caddyserver/caddy/v2.(*Replacer).Set()
+		         /Users/christophc/Workspace/common/CaddyLRT/caddy-fork/replacer.go:68 +0x90
+		     github.com/caddyserver/caddy/v2/modules/caddyhttp/reverseproxy.(*Handler).ServeHTTP.func1()
+		         /Users/christophc/Workspace/common/CaddyLRT/caddy-fork/modules/caddyhttp/reverseproxy/reverseproxy.go:432 +0x40
+		     runtime.deferreturn()
+		*/
+		// repl.Set("http.reverse_proxy.duration", time.Since(start))
+		// repl.Set("http.reverse_proxy.duration_ms", time.Since(start).Seconds()*1e3) // multiply seconds to preserve decimal (see #4666)
 	}()
 
 	// in the proxy loop, each iteration is an attempt to proxy the request,

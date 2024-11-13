@@ -340,6 +340,7 @@ func cmdReload(fl Flags) (int, error) {
 
 func cmdVersion(_ Flags) (int, error) {
 	_, full := caddy.Version()
+	fmt.Println("CCC FORK Version:")
 	fmt.Println(full)
 	return caddy.ExitCodeSuccess, nil
 }
