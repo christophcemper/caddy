@@ -1,18 +1,20 @@
 module github.com/caddyserver/caddy/v2
 
-go 1.21
+go 1.21.0
+
+toolchain go1.22.2
 
 // replace github.com/christophcemper/rwmutexplus => ../rwmutexplus
 
-toolchain go1.22.8
+require github.com/christophcemper/rwmutexplus v0.0.5
 
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/alecthomas/chroma/v2 v2.13.0
 	github.com/aryann/difflib v0.0.0-20210328193216-ff5ff6dc229b
-	github.com/caddyserver/certmagic v0.20.0
-	github.com/christophcemper/rwmutexplus v0.0.0-20241112235915-cd557829b10e
+	github.com/caddyserver/certmagic v0.21.3
+	github.com/caddyserver/zerossl v0.1.3
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/google/cel-go v0.20.1

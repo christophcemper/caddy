@@ -786,7 +786,6 @@ func (s *Server) logRequest(
 		}))
 	fields = append(fields, extra.fields...)
 
-	log("handled request", fields...)
 }
 
 // protocol returns true if the protocol proto is configured/enabled.
